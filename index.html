@@ -31,7 +31,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',Arial
 
 #bgCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block;background:var(--bg);pointer-events:none}
 #bgScrim{position:fixed;inset:0;z-index:1;pointer-events:none;
-  background:linear-gradient(180deg, rgba(14,13,19,0.86) 0%, rgba(14,13,19,0.42) 20%, rgba(14,13,19,0.32) 55%, rgba(14,13,19,0.88) 100%)}
+  background:linear-gradient(180deg, rgba(14,13,19,0.9) 0%, rgba(14,13,19,0.68) 18%, rgba(14,13,19,0.55) 38%, rgba(14,13,19,0.4) 58%, rgba(14,13,19,0.9) 100%)}
 #page{position:relative;z-index:2}
 ::selection{background:var(--accent);color:var(--accent-ink)}
 a{color:inherit}
@@ -59,7 +59,7 @@ button{font:inherit;cursor:pointer}
 #topbar.scrolled{padding:14px 0;background:rgba(14,13,19,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border-bottom-color:var(--border)}
 .topbar-inner{max-width:1240px;margin:0 auto;width:100%;padding:0 16px;display:flex;align-items:center;justify-content:space-between}
 .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
-.logo-badge{display:inline-flex;align-items:center;line-height:0;margin-left:-10px}
+.logo-badge{display:inline-flex;align-items:center;line-height:0}
 .logo-img{height:40px;width:auto;display:block;
   filter:drop-shadow(0 1px 5px rgba(0,0,0,0.45));
   transition:transform .3s var(--ease)}
@@ -80,13 +80,14 @@ button{font:inherit;cursor:pointer}
 .hero-inner{position:relative;z-index:2;max-width:860px;margin:0 auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:26px}
 .pill{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;padding:8px 16px;border-radius:999px;background:var(--card);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border:1px solid var(--border);color:var(--muted)}
 .hero-headline{font-family:'Crovas','Space Grotesk',Arial,sans-serif;font-size:clamp(40px,7.2vw,86px);font-weight:700;line-height:1.04;letter-spacing:-0.01em}
-.hero-sub{font-size:20px;line-height:1.65;color:var(--muted);max-width:56ch}
-.hero-ctas{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-top:8px}
-.link-how{font-size:16px;font-weight:600;padding:0 4px;min-height:54px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--ink);border-bottom:1px solid transparent;transition:border-color .25s var(--ease),color .25s var(--ease)}
-.link-how:hover{border-color:var(--accent);color:var(--accent)}
+.hero-sub{font-size:20px;line-height:1.65;color:#E8E6F2;max-width:56ch;text-shadow:0 2px 20px rgba(0,0,0,0.6)}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-top:8px;width:100%}
 .chip-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:6px}
-.chip{font-size:14px;font-weight:600;padding:9px 16px;border-radius:999px;background:var(--card);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border:1px solid var(--border);color:var(--muted)}
-.seats-pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;padding:8px 14px 8px 10px;border-radius:999px;background:var(--good-bg);color:var(--good);margin-top:4px}
+.chip{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:14px;font-weight:600;padding:9px 16px;border-radius:999px;background:var(--card);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border:1px solid var(--border);color:var(--muted)}
+.chip svg{flex-shrink:0;opacity:.85}
+.event-meta{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:4px}
+.datetime-pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;padding:8px 14px;border-radius:999px;background:color-mix(in srgb, var(--accent) 16%, transparent);color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 32%, transparent)}
+.seats-pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;padding:8px 14px 8px 10px;border-radius:999px;background:var(--good-bg);color:var(--good)}
 .live-dot{width:8px;height:8px;border-radius:999px;background:var(--good);animation:pulseDot 1.8s ease-in-out infinite}
 @keyframes pulseDot{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--good) 45%, transparent)}50%{box-shadow:0 0 0 6px transparent}}
 
@@ -253,7 +254,16 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
 
 @media (max-width:860px){
   section{padding:64px 0}
-  #hero{padding:64px 16px 48px}
+  #topbar{padding:16px 0}
+  #topbar.scrolled{padding:12px 0}
+  #hero{padding:24px 16px 32px}
+  .hero-inner{gap:14px}
+  .hero-headline{font-size:clamp(32px,9vw,86px);line-height:1.1}
+  .hero-sub{font-size:17px}
+  .hero-ctas{flex-direction:column}
+  .hero-ctas .btn{width:100%}
+  .chip-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;width:100%;max-width:320px;margin:6px auto 0}
+  .chip{font-size:13px;padding:8px 10px}
   .card-grid{grid-template-columns:1fr}
   .timeline{grid-template-columns:1fr;gap:20px}
   .timeline-line{display:none}
@@ -279,7 +289,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
 <header id="topbar">
   <div class="topbar-inner">
     <div class="logo"><span class="logo-badge"><img src="nxtwave-logo-white.png" alt="NxtWave" class="logo-img"></span></div>
-    <a href="#register" class="btn btn-primary btn-sm">Reserve spot</a>
+    <a href="#register" class="btn btn-ghost btn-sm">Register</a>
   </div>
 </header>
 
@@ -294,15 +304,18 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
       <a href="#register" class="btn btn-primary">Reserve your spot
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </a>
-      <a href="#how" class="link-how">How it works</a>
+      <a href="#how" class="btn btn-ghost">How it works</a>
     </div>
     <div class="chip-row">
-      <span class="chip">Free</span>
-      <span class="chip">60 min</span>
-      <span class="chip">Certificate</span>
-      <span class="chip">Any branch</span>
+      <span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11V4a1 1 0 0 1 1-1h7l9 9-8 8-9-9z"/><circle cx="7.5" cy="7.5" r="1.1" fill="currentColor" stroke="none"/></svg>Free</span>
+      <span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>60 min</span>
+      <span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.5 12.5 7 21l5-3 5 3-1.5-8.5"/></svg>Certificate</span>
+      <span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>Any branch</span>
     </div>
-    <span class="seats-pill"><span class="live-dot"></span><span id="seatsLeft">— seats left</span></span>
+    <div class="event-meta">
+      <span class="datetime-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span id="eventDateTime">[DATE] · [TIME]</span></span>
+      <span class="seats-pill"><span class="live-dot"></span><span id="seatsLeft">— seats left</span></span>
+    </div>
   </div>
 </section>
 
