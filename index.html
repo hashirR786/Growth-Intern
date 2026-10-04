@@ -518,12 +518,11 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
   var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- scroll-scrubbed background ----------
-  // Live video.currentTime seeking (what we used before) is inherently unreliable on phones —
-  // every seek forces a fresh decode, and mobile decoders don't guarantee that stays fast, which
-  // is what reads as "choppy". So: keep seeking the video live for the first second or two (so
-  // there's no dead time), but in the background decode a fixed set of frames once into
-  // already-rasterized bitmaps, then switch scrubbing over to indexing that array — a bitmap
-  // draw has no decode cost at all, so it's equally smooth on any device once ready.
+  // Desktop stays exactly as it was: full-res live video, seeked directly, uncapped DPR —
+  // that was already smooth. Mobile gets two extra treatments live seeking doesn't handle
+  // well on phones: a capped canvas DPR, and the video pre-decoded into a fixed set of
+  // bitmaps once in the background so scrubbing indexes an array (no per-frame decode cost)
+  // instead of re-seeking the live video — see startExtraction(), mobile-only below.
   (function(){
     var canvas = document.getElementById('bgCanvas');
     var ctx = canvas.getContext('2d');
@@ -537,6 +536,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     var targetFraction = 0;
     var currentFraction = 0;
 
+    var isMobile = window.innerWidth < 700;
     var FRAME_SAMPLES = 48;
     var MAX_EDGE = 560;
     var frameBitmaps = null;
@@ -545,7 +545,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     // portrait source for narrow screens so phones get the real framing instead of a
     // heavily-cropped slice of the 16:9 cut; picked once at load (not re-picked on resize,
     // so an in-progress scrub never has its source swapped out from under it)
-    var videoSrc = window.innerWidth < 700 ? 'scroll-bg-mobile.mp4' : 'scroll-bg.mp4';
+    var videoSrc = isMobile ? 'scroll-bg-mobile.mp4' : 'scroll-bg.mp4';
     var videoBlob = null;
     fetch(videoSrc)
       .then(function(res){ return res.blob(); })
@@ -559,7 +559,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     video.addEventListener('loadeddata', function(){
       videoReady = true;
       requestAnimationFrame(renderLoop);
-      startExtraction();
+      if (isMobile) startExtraction();
     });
 
     canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
@@ -603,9 +603,10 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     }
 
     function resizeCanvas(){
-      // cap DPR — a phone reporting 3x means 9x the pixels to redraw every scrub frame
-      // versus a 1x desktop; this is a scroll-scrubbed background, not pixel-critical content
-      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      // cap DPR on mobile only — a phone reporting 3x means 9x the pixels to redraw every
+      // scrub frame; desktop keeps its native DPR, unchanged from before
+      var dpr = window.devicePixelRatio || 1;
+      if (isMobile) dpr = Math.min(dpr, 1.5);
       canvas.width = Math.round(window.innerWidth * dpr);
       canvas.height = Math.round(window.innerHeight * dpr);
       canvas.style.width = window.innerWidth + 'px';
