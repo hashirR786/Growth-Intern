@@ -1,5 +1,10 @@
 <title>60-Minute AI Sprint</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Instrument+Serif:ital@1&display=swap">
+<!-- Firebase: only reachable standalone (e.g. GitHub Pages) — the Claude Artifact
+     sandbox's CSP blocks gstatic.com, so inside the Artifact these simply fail to load
+     and the page falls back to Claude's native db capability instead (see resolveDb()) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 @font-face{font-family:'Crovas';src:url('fonts/crovas-regular.otf') format('opentype');font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:'Crovas';src:url('fonts/crovas-oblique.otf') format('opentype');font-weight:700;font-style:italic;font-display:swap}
@@ -915,10 +920,40 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     }
   });
 
+  // Firebase config — public client identifiers, safe to ship (access is governed by
+  // Firestore security rules, not by keeping this secret)
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBkkSALuj6OdM_P6ErBXKKNM-hJK7zlkOY",
+    authDomain: "nxtwave-ai-sprint.firebaseapp.com",
+    projectId: "nxtwave-ai-sprint",
+    storageBucket: "nxtwave-ai-sprint.firebasestorage.app",
+    messagingSenderId: "820211906477",
+    appId: "1:820211906477:web:d7f78f23c2a290ecbdd324"
+  };
+
+  // Resolve a database: Claude's native `db` capability when running inside the
+  // Artifact viewer, falling back to Firebase Firestore everywhere else (e.g. GitHub
+  // Pages) — same collection/doc shape either way, so the rest of this file doesn't care.
+  async function resolveDb(){
+    try {
+      if (window.claude && window.claude.use){
+        var claudeDb = await window.claude.use('db');
+        if (claudeDb) return claudeDb;
+      }
+    } catch(e){}
+    try {
+      if (window.firebase && window.firebase.firestore){
+        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        return firebase.firestore();
+      }
+    } catch(e){}
+    return null;
+  }
+
   var db = null;
   async function init(){
     try {
-      db = (window.claude && window.claude.use) ? await window.claude.use('db') : null;
+      db = await resolveDb();
     } catch(e){ db = null; }
 
     if (!db){
