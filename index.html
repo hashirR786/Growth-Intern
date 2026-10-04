@@ -517,7 +517,13 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
   function el(tag, attrs){ var e=document.createElement(tag); if(attrs) Object.assign(e,attrs); return e; }
   var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ---------- scroll-scrubbed background (single all-intra video, drawn to canvas) ----------
+  // ---------- scroll-scrubbed background ----------
+  // Live video.currentTime seeking (what we used before) is inherently unreliable on phones —
+  // every seek forces a fresh decode, and mobile decoders don't guarantee that stays fast, which
+  // is what reads as "choppy". So: keep seeking the video live for the first second or two (so
+  // there's no dead time), but in the background decode a fixed set of frames once into
+  // already-rasterized bitmaps, then switch scrubbing over to indexing that array — a bitmap
+  // draw has no decode cost at all, so it's equally smooth on any device once ready.
   (function(){
     var canvas = document.getElementById('bgCanvas');
     var ctx = canvas.getContext('2d');
@@ -531,13 +537,20 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     var targetFraction = 0;
     var currentFraction = 0;
 
+    var FRAME_SAMPLES = 48;
+    var MAX_EDGE = 560;
+    var frameBitmaps = null;
+    var extractStarted = false;
+
     // portrait source for narrow screens so phones get the real framing instead of a
     // heavily-cropped slice of the 16:9 cut; picked once at load (not re-picked on resize,
     // so an in-progress scrub never has its source swapped out from under it)
     var videoSrc = window.innerWidth < 700 ? 'scroll-bg-mobile.mp4' : 'scroll-bg.mp4';
+    var videoBlob = null;
     fetch(videoSrc)
       .then(function(res){ return res.blob(); })
       .then(function(blob){
+        videoBlob = blob;
         video.src = URL.createObjectURL(blob);
         video.load();
       })
@@ -546,9 +559,48 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     video.addEventListener('loadeddata', function(){
       videoReady = true;
       requestAnimationFrame(renderLoop);
+      startExtraction();
     });
 
     canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+    // extraction runs on its own video element (same blob) so it never fights the live-preview
+    // video's currentTime while the scrub is still running off raw seeks
+    function startExtraction(){
+      if (extractStarted || !videoBlob || typeof createImageBitmap !== 'function') return;
+      extractStarted = true;
+      var ex = document.createElement('video');
+      ex.muted = true; ex.playsInline = true; ex.preload = 'auto';
+      ex.src = URL.createObjectURL(videoBlob);
+      ex.addEventListener('loadeddata', function(){
+        var iw = ex.videoWidth, ih = ex.videoHeight;
+        if (!iw || !ih) return;
+        var scale = MAX_EDGE / Math.max(iw, ih);
+        var ew = Math.round(iw * scale), eh = Math.round(ih * scale);
+        var exCanvas = document.createElement('canvas');
+        exCanvas.width = ew; exCanvas.height = eh;
+        var exCtx = exCanvas.getContext('2d');
+        var bitmaps = new Array(FRAME_SAMPLES);
+        var i = 0;
+        function captureNext(){
+          if (i >= FRAME_SAMPLES){ frameBitmaps = bitmaps; return; }
+          var t = (i / (FRAME_SAMPLES - 1)) * ex.duration;
+          var onSeeked = function(){
+            ex.removeEventListener('seeked', onSeeked);
+            exCtx.drawImage(ex, 0, 0, ew, eh);
+            try {
+              createImageBitmap(exCanvas).then(function(bmp){
+                bitmaps[i] = bmp; i++; captureNext();
+              }).catch(function(){ i++; captureNext(); });
+            } catch(e){ i++; captureNext(); }
+          };
+          ex.addEventListener('seeked', onSeeked);
+          ex.currentTime = Math.min(t, ex.duration - 0.01);
+        }
+        captureNext();
+      });
+      ex.load();
+    }
 
     function resizeCanvas(){
       // cap DPR — a phone reporting 3x means 9x the pixels to redraw every scrub frame
@@ -560,14 +612,13 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
       canvas.style.height = window.innerHeight + 'px';
     }
 
-    function drawCover(){
+    function drawSourceCover(source, iw, ih){
       var cw = canvas.width, ch = canvas.height;
-      var iw = video.videoWidth, ih = video.videoHeight;
       if (!iw || !ih) return;
       var scale = Math.max(cw / iw, ch / ih);
       var dw = iw * scale, dh = ih * scale;
       var dx = (cw - dw) / 2, dy = (ch - dh) / 2;
-      ctx.drawImage(video, dx, dy, dw, dh);
+      ctx.drawImage(source, dx, dy, dw, dh);
     }
 
     function computeTargetFraction(){
@@ -582,14 +633,20 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     }
 
     function renderLoop(){
-      if (videoReady && video.duration){
-        currentFraction += (targetFraction - currentFraction) * (prefersReduced ? 1 : 0.15);
+      currentFraction += (targetFraction - currentFraction) * (prefersReduced ? 1 : 0.15);
+
+      if (frameBitmaps){
+        var idx = Math.round(currentFraction * (FRAME_SAMPLES - 1));
+        idx = Math.max(0, Math.min(FRAME_SAMPLES - 1, idx));
+        var bmp = frameBitmaps[idx];
+        if (bmp) drawSourceCover(bmp, bmp.width, bmp.height);
+      } else if (videoReady && video.duration){
         var t = currentFraction * video.duration;
         if (Math.abs(t - lastSetTime) > minSeekStep()){
           video.currentTime = t;
           lastSetTime = t;
         }
-        drawCover();
+        drawSourceCover(video, video.videoWidth, video.videoHeight);
       }
       requestAnimationFrame(renderLoop);
     }
