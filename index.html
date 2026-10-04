@@ -531,7 +531,11 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     var targetFraction = 0;
     var currentFraction = 0;
 
-    fetch('scroll-bg.mp4')
+    // portrait source for narrow screens so phones get the real framing instead of a
+    // heavily-cropped slice of the 16:9 cut; picked once at load (not re-picked on resize,
+    // so an in-progress scrub never has its source swapped out from under it)
+    var videoSrc = window.innerWidth < 700 ? 'scroll-bg-mobile.mp4' : 'scroll-bg.mp4';
+    fetch(videoSrc)
       .then(function(res){ return res.blob(); })
       .then(function(blob){
         video.src = URL.createObjectURL(blob);
