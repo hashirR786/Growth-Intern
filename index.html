@@ -166,7 +166,7 @@ section{padding:100px 0}
 .field select{padding:14px}
 .field label{position:absolute;left:14px;top:16px;font-size:16px;color:var(--muted);pointer-events:none;transition:all .18s var(--ease);background:transparent}
 .field input:focus + label,.field input:not(:placeholder-shown) + label{top:7px;font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
-.field select ~ label{position:static;display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-bottom:6px}
+.field label.select-label{position:static;display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-bottom:6px}
 .field input:focus,.field select:focus{outline:2px solid var(--accent);outline-offset:1px}
 .field select option{background:#1C1930;color:var(--ink)}
 .field-err{font-size:13px;color:var(--bad);margin-top:6px;min-height:16px}
@@ -422,7 +422,11 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
           <label for="fCollege">College</label>
         </div>
         <div class="field">
-          <label for="fBranch">Branch</label>
+          <input id="fEmail" type="email" autocomplete="email" placeholder=" " aria-describedby="emailErr">
+          <label for="fEmail">College email</label>
+        </div>
+        <div class="field">
+          <label for="fBranch" class="select-label">Branch</label>
           <select id="fBranch">
             <option value="">Select branch</option>
             <option>Computer Science</option>
@@ -1079,18 +1083,37 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
       board.innerHTML = '<p style="color:var(--muted);font-size:14px">Leaderboard is temporarily unavailable.</p>';
     });
 
+    var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     submitBtn.addEventListener('click', async function(){
       var name = document.getElementById('fName').value.trim();
       var college = document.getElementById('fCollege').value.trim();
+      var email = document.getElementById('fEmail').value.trim().toLowerCase();
       var branch = document.getElementById('fBranch').value;
-      if (!name || !college){
-        formHint.textContent = 'Please add your name and college.';
+      if (!name || !college || !email){
+        formHint.textContent = 'Please add your name, college and college email.';
+        return;
+      }
+      if (!EMAIL_RE.test(email)){
+        formHint.textContent = 'That email address doesn\'t look right.';
         return;
       }
       submitBtn.disabled = true;
       submitLabel.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
       formHint.textContent = '';
       try {
+        // one registration per email — if this address already registered (any device,
+        // any browser), send them back to their existing entry instead of making a duplicate
+        var dupe = await db.collection('registrations').where('email', '==', email).limit(1).get();
+        if (dupe && dupe.docs && dupe.docs.length){
+          var existing = dupe.docs[0];
+          myCode = existing.id;
+          try { localStorage.setItem('aiSprintCode', myCode); } catch(e){}
+          formHint.textContent = '';
+          showSuccess(Object.assign({id: myCode}, existing.data()));
+          return;
+        }
+
         var code = genCode();
         for (var attempt=0; attempt<5; attempt++){
           var check = await db.doc('registrations/'+code).get();
@@ -1103,7 +1126,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
           if (refSnap.exists) referredBy = referredByHash;
         }
         await db.doc('registrations/'+code).set({
-          name: name, college: college, branch: branch || null,
+          name: name, college: college, email: email, branch: branch || null,
           referredBy: referredBy, createdAt: new Date().toISOString()
         });
         myCode = code;
