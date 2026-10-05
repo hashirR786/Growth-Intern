@@ -420,7 +420,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     </div>
     <div class="reg-wrap">
       <div class="seats-progress-wrap">
-        <div class="seats-progress-top"><span>Seats filling up</span><b id="counterNum">— / 500</b></div>
+        <div class="seats-progress-top"><span>Seats filling up</span><b id="counterNum">—</b></div>
         <div class="bar"><div id="counterBar"></div></div>
       </div>
 
@@ -994,7 +994,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
 
   function renderCounter(){
     var n = allDocs.length;
-    counterNum.textContent = n + ' / 500';
+    counterNum.textContent = n + ' registered';
     counterBar.style.width = Math.min(100, (n/500)*100) + '%';
     seatsLeft.textContent = Math.max(0, 500 - n) + ' seats left';
     statSeats.setAttribute('data-count-to', String(n));
@@ -1060,7 +1060,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     } catch(e){ db = null; }
 
     if (!db){
-      counterNum.textContent = '— / 500';
+      counterNum.textContent = '—';
       seatsLeft.textContent = '— seats left';
       board.innerHTML = '<p style="color:var(--muted);font-size:14px">Live data isn\'t available in this preview.</p>';
       formHint.textContent = 'Live data isn\'t available in this preview.';
