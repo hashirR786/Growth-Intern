@@ -1096,6 +1096,18 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     });
 
     var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // throwaway/temp-mail domains — blocks the laziest fake signups without adding any
+    // friction (no verification step) for everyone using a real address
+    var DISPOSABLE_DOMAINS = new Set([
+      'mailinator.com','tempmail.com','temp-mail.org','guerrillamail.com','guerrillamail.info',
+      '10minutemail.com','10minutemail.net','yopmail.com','yopmail.net','throwawaymail.com',
+      'trashmail.com','trashmail.net','getnada.com','dispostable.com','fakeinbox.com',
+      'maildrop.cc','sharklasers.com','mailnesia.com','mintemail.com','mohmal.com',
+      'emailondeck.com','discard.email','discardmail.com','moakt.com','mailcatch.com',
+      'spamgourmet.com','mytemp.email','tempinbox.com','tempail.com','fakemailgenerator.com',
+      'mail-temp.com','tempmailo.com','burnermail.io','mailpoof.com','emailtemporanea.net',
+      'crazymailing.com','mailnator.com','anonaddy.me','inboxkitten.com','tempemail.co'
+    ]);
 
     submitBtn.addEventListener('click', async function(){
       var name = document.getElementById('fName').value.trim();
@@ -1108,6 +1120,11 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
       }
       if (!EMAIL_RE.test(email)){
         formHint.textContent = 'That email address doesn\'t look right.';
+        return;
+      }
+      var emailDomain = email.split('@')[1] || '';
+      if (DISPOSABLE_DOMAINS.has(emailDomain)){
+        formHint.textContent = 'Please use a real email, not a temporary one.';
         return;
       }
       submitBtn.disabled = true;
