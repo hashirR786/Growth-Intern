@@ -10,6 +10,7 @@
      and the page falls back to Claude's native db capability instead (see resolveDb()) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
 @font-face{font-family:'Crovas';src:url('fonts/crovas-regular.otf') format('opentype');font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:'Crovas';src:url('fonts/crovas-oblique.otf') format('opentype');font-weight:700;font-style:italic;font-display:swap}
@@ -435,7 +436,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
         </div>
         <div class="field">
           <input id="fEmail" type="email" autocomplete="email" placeholder=" " aria-describedby="emailErr">
-          <label for="fEmail">College email</label>
+          <label for="fEmail">Email</label>
         </div>
         <div class="field">
           <label for="fBranch" class="select-label">Branch</label>
@@ -453,6 +454,25 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
           <span id="submitLabel">Register free</span>
         </button>
         <p class="field-err" id="formHint" role="status" aria-live="polite">&nbsp;</p>
+      </div>
+
+      <div class="reg-card" id="verifyCard" hidden>
+        <div class="success-wrap" role="status" aria-live="polite">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+          <h3 style="font-size:20px;font-weight:700;margin-top:14px">Check your email</h3>
+          <p style="color:var(--muted);font-size:14.5px;margin-top:6px;max-width:34ch">We sent a link to <b id="verifyEmailOut" style="color:var(--ink)"></b> — click it to finish registering. Usually takes a few minutes; check spam if it doesn't show up.</p>
+          <p class="field-err" id="verifyHint" role="status" aria-live="polite" style="margin-top:10px">&nbsp;</p>
+        </div>
+      </div>
+
+      <div class="reg-card" id="confirmEmailCard" hidden>
+        <div class="field">
+          <input id="fConfirmEmail" type="email" placeholder=" ">
+          <label for="fConfirmEmail">Confirm your email</label>
+        </div>
+        <p style="color:var(--muted);font-size:13.5px;margin:-6px 0 16px">Opened this link on a different device? Type the email you registered with to finish.</p>
+        <button class="btn btn-primary btn-block" id="confirmEmailBtn">Confirm &amp; finish</button>
+        <p class="field-err" id="confirmEmailHint" role="status" aria-live="polite">&nbsp;</p>
       </div>
 
       <div class="reg-card" id="successCard" hidden>
@@ -1037,6 +1057,9 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
   // Resolve a database: Claude's native `db` capability when running inside the
   // Artifact viewer, falling back to Firebase Firestore everywhere else (e.g. GitHub
   // Pages) — same collection/doc shape either way, so the rest of this file doesn't care.
+  // Email verification (below) only runs on the Firebase path: the Artifact sandbox
+  // blocks Firebase entirely, so inside it this stays instant, same as before.
+  var usingFirebase = false;
   async function resolveDb(){
     try {
       if (window.claude && window.claude.use){
@@ -1047,6 +1070,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
     try {
       if (window.firebase && window.firebase.firestore){
         if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        usingFirebase = true;
         return firebase.firestore();
       }
     } catch(e){}
@@ -1054,9 +1078,13 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
   }
 
   var db = null;
+  var auth = null;
+  var ACTION_CODE_SETTINGS = { url: location.href.split('#')[0].split('?')[0], handleCodeInApp: true };
+
   async function init(){
     try {
       db = await resolveDb();
+      if (usingFirebase) auth = firebase.auth();
     } catch(e){ db = null; }
 
     if (!db){
@@ -1074,6 +1102,16 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
         if (mySnap.exists){ showSuccessSilent(Object.assign({id:myCode}, mySnap.data())); }
         else { myCode = null; try{ localStorage.removeItem('aiSprintCode'); }catch(e){} }
       } catch(e){}
+    } else if (usingFirebase){
+      // reloaded the page while still waiting on the verification email (common over a
+      // multi-minute wait) — re-show the waiting state instead of the empty form
+      var pendingEmailCheck = null;
+      try { pendingEmailCheck = localStorage.getItem('emailForSignIn'); } catch(e){}
+      if (pendingEmailCheck && !(auth && auth.isSignInWithEmailLink(window.location.href))){
+        formCard.hidden = true;
+        document.getElementById('verifyEmailOut').textContent = pendingEmailCheck;
+        document.getElementById('verifyCard').hidden = false;
+      }
     }
 
     function showSuccessSilent(doc){
@@ -1084,6 +1122,77 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
       document.getElementById('refLink').value = link;
       var waText = encodeURIComponent('Join me for NxtWave\'s free "Build Your First AI Project in 60 Minutes" workshop: ' + link);
       document.getElementById('waShare').href = 'https://wa.me/?text=' + waText;
+    }
+
+    var verifyCard = document.getElementById('verifyCard');
+    var confirmEmailCard = document.getElementById('confirmEmailCard');
+    var confirmEmailHint = document.getElementById('confirmEmailHint');
+    var verifyHint = document.getElementById('verifyHint');
+
+    // finishes registration once Firebase confirms the clicked link proves this email —
+    // called either automatically (same device/browser that submitted the form) or after
+    // the viewer re-types their email (clicked the link on a different device)
+    async function completeEmailLinkSignIn(email){
+      try {
+        await auth.signInWithEmailLink(email, window.location.href);
+        try { localStorage.removeItem('emailForSignIn'); } catch(e){}
+        history.replaceState(null, '', window.location.pathname);
+
+        var pending = {};
+        try { pending = JSON.parse(localStorage.getItem('pendingReg') || '{}'); } catch(e){}
+        try { localStorage.removeItem('pendingReg'); } catch(e){}
+
+        var dupe = await db.collection('registrations').where('email', '==', email).limit(1).get();
+        if (dupe && dupe.docs && dupe.docs.length){
+          var existing = dupe.docs[0];
+          myCode = existing.id;
+          try { localStorage.setItem('aiSprintCode', myCode); } catch(e){}
+          verifyCard.hidden = true; confirmEmailCard.hidden = true;
+          showSuccess(Object.assign({id: myCode}, existing.data()));
+          return;
+        }
+
+        var code = genCode();
+        for (var attempt=0; attempt<5; attempt++){
+          var check = await db.doc('registrations/'+code).get();
+          if (!check.exists) break;
+          code = genCode();
+        }
+        var referredBy = null;
+        if (pending.referredBy && pending.referredBy !== code){
+          var refSnap = await db.doc('registrations/'+pending.referredBy).get();
+          if (refSnap.exists) referredBy = pending.referredBy;
+        }
+        await db.doc('registrations/'+code).set({
+          name: pending.name || '', college: pending.college || '', email: email,
+          branch: pending.branch || null, referredBy: referredBy, createdAt: new Date().toISOString()
+        });
+        myCode = code;
+        try { localStorage.setItem('aiSprintCode', code); } catch(e){}
+        verifyCard.hidden = true; confirmEmailCard.hidden = true;
+        showSuccess({id: code, name: pending.name});
+      } catch(e){
+        var msg = (e && e.code === 'auth/invalid-email') ? 'That email doesn\'t match this link.' : 'Couldn\'t verify that link — please try registering again.';
+        if (!confirmEmailCard.hidden) confirmEmailHint.textContent = msg;
+        else verifyHint.textContent = msg;
+      }
+    }
+
+    if (usingFirebase && auth && auth.isSignInWithEmailLink(window.location.href)){
+      var storedEmailForSignIn = null;
+      try { storedEmailForSignIn = localStorage.getItem('emailForSignIn'); } catch(e){}
+      formCard.hidden = true;
+      if (storedEmailForSignIn){
+        completeEmailLinkSignIn(storedEmailForSignIn);
+      } else {
+        confirmEmailCard.hidden = false;
+        document.getElementById('confirmEmailBtn').addEventListener('click', function(){
+          var typed = document.getElementById('fConfirmEmail').value.trim().toLowerCase();
+          if (!typed){ confirmEmailHint.textContent = 'Please enter your email.'; return; }
+          confirmEmailHint.textContent = '';
+          completeEmailLinkSignIn(typed);
+        });
+      }
     }
 
     db.collection('registrations').onSnapshot(function(snap){
@@ -1115,7 +1224,7 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
       var email = document.getElementById('fEmail').value.trim().toLowerCase();
       var branch = document.getElementById('fBranch').value;
       if (!name || !college || !email){
-        formHint.textContent = 'Please add your name, college and college email.';
+        formHint.textContent = 'Please add your name, college and email.';
         return;
       }
       if (!EMAIL_RE.test(email)){
@@ -1140,6 +1249,19 @@ footer{padding:28px 16px 56px;text-align:center;font-size:13px;color:var(--muted
           try { localStorage.setItem('aiSprintCode', myCode); } catch(e){}
           formHint.textContent = '';
           showSuccess(Object.assign({id: myCode}, existing.data()));
+          return;
+        }
+
+        // Firebase path: verify the email is real before creating the registration — send
+        // a sign-in link and finish the write only once they click it (see
+        // completeEmailLinkSignIn). Claude-db path (inside the Artifact) stays instant.
+        if (usingFirebase && auth){
+          try { localStorage.setItem('pendingReg', JSON.stringify({ name: name, college: college, branch: branch || null, referredBy: referredByHash })); } catch(e){}
+          try { localStorage.setItem('emailForSignIn', email); } catch(e){}
+          await auth.sendSignInLinkToEmail(email, ACTION_CODE_SETTINGS);
+          formCard.hidden = true;
+          document.getElementById('verifyEmailOut').textContent = email;
+          document.getElementById('verifyCard').hidden = false;
           return;
         }
 
